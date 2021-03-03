@@ -35,7 +35,7 @@ class landing_page():
 
 
 def validate_url(url):
-    return (validators.url(url)) & ('?' not in url)
+    return (validators.url(url)) and ('?' not in url)
 
 
 class subject_page():
@@ -76,8 +76,11 @@ class subject_page():
     def next_page(self):
         nav_pages = self.nav_pages()
         if len(nav_pages) != 0:
-            next_link = list(set(nav_pages) - set(self.page_visited))[0]
-            return next_link
+            if len(list(set(nav_pages) - set(self.page_visited))) != 0:
+                next_link = list(set(nav_pages) - set(self.page_visited))[0]
+                return next_link
+            else:
+                return ''
         else:
             return False
 

@@ -44,6 +44,7 @@ class subject_page():
         self.start_url = start_url
         self.page_visited = []
         self.page_not_visited = []
+        self.post_urls = []
 
     def setup(self):
         options = Options()
@@ -54,7 +55,7 @@ class subject_page():
             self.driver = webdriver.Chrome(ChromeDriverManager(), options=options)
         except:
             self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-        self.driver.get(self.start_url)
+        self.goto_page(self.start_url)
         self.page_visited.append(self.start_url)
         for page_url in self.nav_pages():
             self.page_not_visited.append(page_url)
@@ -66,6 +67,12 @@ class subject_page():
     def goto_page(self, url):
         print(f"Going to page: {url}")
         self.driver.get(url)
+        if '.php?' not in url:
+            post_links = self.get_post_url()
+            for post_link in post_links:
+                self.post_urls.append(post_link)
+        else:
+            self.post_urls.append(url)
         self.page_visited.append(url)
         self.page_visited = list(dict.fromkeys(self.page_visited))
 
@@ -73,37 +80,32 @@ class subject_page():
         pages = [element.get_attribute('href') for element in self.driver.find_elements_by_class_name('navPages')]
         return pages
 
-    def next_page(self):
-        nav_pages = self.nav_pages()
-        if len(nav_pages) != 0:
-            if len(list(set(nav_pages) - set(self.page_visited))) != 0:
-                next_link = list(set(nav_pages) - set(self.page_visited))[0]
-                return next_link
-            else:
-                return ''
-        else:
-            return False
+    def get_post_url(self):
+        preview_elements = self.driver.find_elements_by_class_name('preview')
+        return [element.find_element_by_tag_name('a').get_attribute('href') for element in preview_elements]
 
     def fetch_links(self):
         self.setup()
-        while True:
-            if validate_url(self.next_page()):
-                self.goto_page(self.next_page())
-            else:
-                break
+        valid_links = list(set(self.page_not_visited) - set(self.page_visited))
+        while valid_links:
+            self.goto_page(valid_links[0])
+            for page_url in self.nav_pages():
+                self.page_not_visited.append(page_url)
+            self.page_not_visited = list(dict.fromkeys(self.page_not_visited))
+            valid_links = list(set(self.page_not_visited) - set(self.page_visited))
 
         self.close()
-        return self.page_visited
+        return self.post_urls
 
 
 class get_post_data():
     def __init__(self, start_url):
-        self.start_url = start_url
+        self.fetch_url = start_url
         self.page_visited = []
         self.conversation_data = []
 
     def fetch_dat(self, driver):
-        driver.get(self.start_url)
+        driver.get(self.fetch_url)
         dat = [element.text for element in driver.find_elements_by_class_name('inner')]
         self.conversation_data.append(dat)
         return dat
@@ -119,4 +121,18 @@ if __name__ == "__main__":
 
     link, topic = subject_links[0]
     subject = subject_page(topic=topic, start_url=link)
-    print(len(subject.fetch_links()))
+    subject_post_links = subject.fetch_links()
+
+    options = Options()
+    options.add_argument('--headless')
+    prefs = {"profile.managed_default_content_settings.images": 2}
+    options.add_experimental_option("prefs", prefs)
+    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+
+    conv = []
+
+    for url in subject_post_links:
+        post = get_post_data(url)
+        conv.append(post.fetch_dat(driver=driver))
+
+    print(conv)

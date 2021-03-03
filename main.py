@@ -97,20 +97,6 @@ class subject_page():
         self.close()
         return self.post_urls
 
-
-class get_post_data():
-    def __init__(self, start_url):
-        self.fetch_url = start_url
-        self.page_visited = []
-        self.conversation_data = []
-
-    def fetch_dat(self, driver):
-        driver.get(self.fetch_url)
-        dat = [element.text for element in driver.find_elements_by_class_name('inner')]
-        self.conversation_data.append(dat)
-        return dat
-
-
 if __name__ == "__main__":
     URL = "http://www.legalserviceindia.com/lawforum/"
     lawforum = landing_page(URL)
@@ -119,20 +105,20 @@ if __name__ == "__main__":
     subject_links = lawforum.get_topic_links()
     lawforum.close()
 
-    link, topic = subject_links[0]
-    subject = subject_page(topic=topic, start_url=link)
-    subject_post_links = subject.fetch_links()
-
     options = Options()
     options.add_argument('--headless')
     prefs = {"profile.managed_default_content_settings.images": 2}
     options.add_experimental_option("prefs", prefs)
     driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
-    conv = []
+    for link, topic in subject_links:
+        subject = subject_page(topic=topic, start_url=link)
+        subject_post_links = subject.fetch_links()
+        conv = []
 
-    for url in subject_post_links:
-        post = get_post_data(url)
-        conv.append(post.fetch_dat(driver=driver))
+        for url in subject_post_links:
+            driver.get(url)
+            dat = [element.text for element in driver.find_elements_by_class_name('inner')]
+            conv.append(dat)
 
     print(conv)

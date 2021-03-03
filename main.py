@@ -34,6 +34,10 @@ class landing_page():
         return [(x.get_attribute('href'), x.text) for x in self.driver.find_elements_by_class_name("subject")]
 
 
+def validate_url(url):
+    return (validators.url(url)) & ('?' not in url)
+
+
 class subject_page():
     def __init__(self, topic, start_url):
         self.topic = topic
@@ -52,13 +56,12 @@ class subject_page():
             self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
         self.driver.get(self.start_url)
         self.page_visited.append(self.start_url)
+        for page_url in self.nav_pages():
+            self.page_not_visited.append(page_url)
         print(f'Getting data for subject: {self.topic}')
 
     def close(self):
         self.driver.quit()
-
-    def validate_url(self, url):
-        return (validators.url(url)) & (self.topic.lower() in url)
 
     def goto_page(self, url):
         print(f"Going to page: {url}")
@@ -71,7 +74,7 @@ class subject_page():
         return pages
 
     def next_page(self):
-        nav_pages = [element.get_attribute('href') for element in self.driver.find_elements_by_class_name('navPages')]
+        nav_pages = self.nav_pages()
         if len(nav_pages) != 0:
             next_link = list(set(nav_pages) - set(self.page_visited))[0]
             return next_link
@@ -81,7 +84,7 @@ class subject_page():
     def fetch_links(self):
         self.setup()
         while True:
-            if self.validate_url(self.next_page()):
+            if validate_url(self.next_page()):
                 self.goto_page(self.next_page())
             else:
                 break
@@ -113,4 +116,4 @@ if __name__ == "__main__":
 
     link, topic = subject_links[0]
     subject = subject_page(topic=topic, start_url=link)
-    print(subject.fetch_links())
+    print(len(subject.fetch_links()))

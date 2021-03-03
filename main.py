@@ -1,6 +1,7 @@
 # import numpy as np
 from selenium import webdriver
 from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
@@ -17,9 +18,9 @@ class landing_page():
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
         try:
-            self.driver = webdriver.Chrome(chrome_options=options)
+            self.driver = webdriver.Chrome(options=options)
         except:
-            self.driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
+            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
         print('starting the browser')
 
     def close(self):
@@ -38,7 +39,7 @@ class subject_page():
         self.topic = topic
         self.start_url = start_url
         self.page_visited = []
-        self.conversation_data = []
+        self.page_not_visited = []
 
     def setup(self):
         options = Options()
@@ -46,44 +47,60 @@ class subject_page():
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
         try:
-            self.driver = webdriver.Chrome(ChromeDriverManager(), chrome_options=options)
+            self.driver = webdriver.Chrome(ChromeDriverManager(), options=options)
         except:
-            self.driver = webdriver.Chrome(ChromeDriverManager().install(), chrome_options=options)
+            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+        self.driver.get(self.start_url)
+        self.page_visited.append(self.start_url)
         print(f'Getting data for subject: {self.topic}')
 
     def close(self):
         self.driver.quit()
 
+    def validate_url(self, url):
+        return (validators.url(url)) & (self.topic.lower() in url)
+
     def goto_page(self, url):
         print(f"Going to page: {url}")
         self.driver.get(url)
         self.page_visited.append(url)
+        self.page_visited = list(dict.fromkeys(self.page_visited))
 
-    def next_page_exists(self):
-        nav_pages = set(
-            [element.get_attribute('href') for element in self.driver.find_elements_by_class_name('navPages')])
-        next_url = list(nav_pages.difference(self.page_visited))
-        if (len(next_url != 0) & validators.url(next_url[0])):
-            return next_url[0]
+    def nav_pages(self):
+        pages = [element.get_attribute('href') for element in self.driver.find_elements_by_class_name('navPages')]
+        return pages
+
+    def next_page(self):
+        nav_pages = [element.get_attribute('href') for element in self.driver.find_elements_by_class_name('navPages')]
+        if len(nav_pages) != 0:
+            next_link = list(set(nav_pages) - set(self.page_visited))[0]
+            return next_link
         else:
             return False
-        # TODO: Add a function to check if the next page exists
-        # TODO: Logic -> Get all the pagelinks as a set.
-        # Remove all the links that is already on page_visited. Go to the first link on the page_visited.
 
-    def parse_page(self, page):
-        pass
+    def fetch_links(self):
+        self.setup()
+        while True:
+            if self.validate_url(self.next_page()):
+                self.goto_page(self.next_page())
+            else:
+                break
 
-    def get_conversation_data(self):
-        self.goto_page(url=self.start_url)
-        self.conversation_data.append(self.parse_page(self.driver.page_source))
-        next_page_url = self.next_page_exists()
-        while validators.url(next_page_url):
-            self.goto_page(next_page_url)
-            self.conversation_data.append(self.parse_page(self.driver.page_source))
-            next_page_url = self.next_page_exists()
-        # TODO: Parse the current page to see if there exists the next page
-        pass
+        self.close()
+        return self.page_visited
+
+
+class get_post_data():
+    def __init__(self, start_url):
+        self.start_url = start_url
+        self.page_visited = []
+        self.conversation_data = []
+
+    def fetch_dat(self, driver):
+        driver.get(self.start_url)
+        dat = [element.text for element in driver.find_elements_by_class_name('inner')]
+        self.conversation_data.append(dat)
+        return dat
 
 
 if __name__ == "__main__":
@@ -93,12 +110,7 @@ if __name__ == "__main__":
     lawforum.fetch_landing_page()
     subject_links = lawforum.get_topic_links()
     lawforum.close()
-    for link, topic in subject_links:
-        subject = subject_page(topic=topic, start_url=link)
-        subject.setup()
-        # TODO: return a dictionary in the format {"q":"some text","a":["answer 1","answer 2"...]}
-        subject.get_conversation_data()
-        subject.close()
 
-        # TODO: Initialize subject page, extract the data, move to the next page
-        pass
+    link, topic = subject_links[0]
+    subject = subject_page(topic=topic, start_url=link)
+    print(subject.fetch_links())

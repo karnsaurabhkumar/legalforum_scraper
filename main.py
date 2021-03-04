@@ -5,7 +5,11 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
+import logging
 import validators
+import chromedriver_binary
+
+logging.basicConfig(filename='run.log', encoding='utf-8', level=logging.INFO)
 
 
 class landing_page():
@@ -17,10 +21,7 @@ class landing_page():
         options.add_argument('--headless')
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
-        try:
-            self.driver = webdriver.Chrome(options=options)
-        except:
-            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+        self.driver = webdriver.Chrome(options=options)
         print('starting the browser')
 
     def close(self):
@@ -51,10 +52,8 @@ class subject_page():
         options.add_argument('--headless')
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
-        try:
-            self.driver = webdriver.Chrome(ChromeDriverManager(), options=options)
-        except:
-            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
+        self.driver = webdriver.Chrome(options=options)
+
         self.goto_page(self.start_url)
         self.page_visited.append(self.start_url)
         for page_url in self.nav_pages():
@@ -87,15 +86,22 @@ class subject_page():
     def fetch_links(self):
         self.setup()
         valid_links = list(set(self.page_not_visited) - set(self.page_visited))
+        c = 0
         while valid_links:
             self.goto_page(valid_links[0])
+            logging.info(valid_links[0])
             for page_url in self.nav_pages():
                 self.page_not_visited.append(page_url)
             self.page_not_visited = list(dict.fromkeys(self.page_not_visited))
             valid_links = list(set(self.page_not_visited) - set(self.page_visited))
+            if c % 10 == 0:
+                self.driver.close()
+                self.setup()
+            c += 1
 
         self.close()
         return self.post_urls
+
 
 if __name__ == "__main__":
     URL = "http://www.legalserviceindia.com/lawforum/"
@@ -109,16 +115,18 @@ if __name__ == "__main__":
     options.add_argument('--headless')
     prefs = {"profile.managed_default_content_settings.images": 2}
     options.add_experimental_option("prefs", prefs)
-    driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
     for link, topic in subject_links:
         subject = subject_page(topic=topic, start_url=link)
         subject_post_links = subject.fetch_links()
-        conv = []
-
-        for url in subject_post_links:
+        print(f'Links fetched. Total count: {len(subject_post_links)}')
+        print(f'fetching conversation data now!')
+        driver = webdriver.Chrome(options=options)
+        logging.info(topic)
+        for i, url in enumerate(subject_post_links):
+            print(f'{100.0*i/len(subject_post_links)}%', end='\r', flush=True)
             driver.get(url)
             dat = [element.text for element in driver.find_elements_by_class_name('inner')]
-            conv.append(dat)
-
-    print(conv)
+            logging.info(dat)
+        driver.quit()
+        print(f'Fetched data for {topic}')

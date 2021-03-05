@@ -124,7 +124,7 @@ if __name__ == "__main__":
         driver = webdriver.Chrome(options=options)
         logging.info(topic)
         for i, url in enumerate(subject_post_links):
-            print(f'{100.0*i/len(subject_post_links)}%', end='\r', flush=True)
+            print(f'{100.0*i/len(subject_post_links)}%', end='\r')
             driver.get(url)
             dat = [element.text for element in driver.find_elements_by_class_name('inner')]
             logging.info(dat)
